@@ -89,8 +89,10 @@ int runGpuSaxpy(int vectorSize) {
 /* 
  Some helpful definitions
 
- generateThreadCount is the number of threads spawned initially. Each thread is responsible for sampleSize points. 
- *pSums is a pointer to an array that holds the number of 'hit' points for each thread. The length of this array is pSumSize.
+ generateThreadCount is the number of threads spawned initially. Each thread 
+ is responsible for sampleSize points. 
+ *pSums is a pointer to an array that holds the number of 'hit' points for 
+ each thread. The length of this array is pSumSize.
 
  reduceThreadCount is the number of threads used to reduce the partial sums.
  *totals is a pointer to an array that holds reduced values.
@@ -98,14 +100,44 @@ int runGpuSaxpy(int vectorSize) {
 
 */
 
+/*
+generateThreadCount = pSumSize
+array pSums[pSumSize] = [tid_0, tid_1, tid_2, ... tid_n]
+each tid = "sampleSize" samples
+*/
 __global__
 void generatePoints (uint64_t * pSums, uint64_t pSumSize, uint64_t sampleSize) {
 	//	Insert code here
+	uint64_t threadId = blockIdx.x * blockDim.x + threadIdx.x;
+
+	// pSumSize is max number of threads
+	if (threadId >= pSumSize) return;
+
+	// Setup RNG
+	curandState_t rng;
+	curand_init(clock64(), threadId, 0, &rng);
+	
+	// Random values and count
+	uint64_t hitCount = 0;
+	for (uint64_t i = 0; i < sampleSize; i++) {
+		// Generate "sampleSize" random values
+		float x = curand_uniform(&rng); 
+		float y = curand_uniform(&rng);
+		if (int(x*x + y*y) == 0) hitCount++;
+	}
+
+	pSums[threadId] = hitCount;
 }
 
+/*
+reduceSize = pSumSize / reduceThreadCount
+array totals[reduceThreadCount] = [reduced_val_0, reduced_val_1, ...]
+*/
 __global__ 
 void reduceCounts (uint64_t * pSums, uint64_t * totals, uint64_t pSumSize, uint64_t reduceSize) {
 	//	Insert code here
+	uint64_t threadId = blockIdx.x * blockDim.x + threadIdx.x;
+
 }
 
 int runGpuMCPi (uint64_t generateThreadCount, uint64_t sampleSize, 
@@ -134,12 +166,19 @@ int runGpuMCPi (uint64_t generateThreadCount, uint64_t sampleSize,
 	return 0;
 }
 
+/*
+generateThreadCount = GENERATE_BLOCKS = 1024
+sampleSize = SAMPLE_SIZE = 1e6
+reduceThreadCount = REDUCE_BLOCKS = GENERATE_BLOCKS / REDUCE_SIZE = 1024/32 = 32
+reduceSize = REDUCE_SIZE = 32
+*/
 double estimatePi(uint64_t generateThreadCount, uint64_t sampleSize, 
 	uint64_t reduceThreadCount, uint64_t reduceSize) {
 	
 	double approxPi = 0;
 
 	//      Insert code here
+	
 	std::cout << "Sneaky, you are ...\n";
 	std::cout << "Compute pi, you must!\n";
 	return approxPi;

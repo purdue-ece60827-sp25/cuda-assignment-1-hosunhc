@@ -1,0 +1,21 @@
+==2225795== NVPROF is profiling process 2225795, command: ./lab1
+==2225795== Profiling application: ./lab1
+==2225795== Profiling result:
+"Type","Time(%)","Time","Calls","Avg","Min","Max","Name"
+,%,ms,,ms,ms,ms,
+"GPU activities",99.990272,85.853606,1,85.853606,85.853606,85.853606,"generatePoints(unsigned long*, unsigned long, unsigned long)"
+"GPU activities",0.005256,0.004513,1,0.004513,0.004513,0.004513,"reduceCounts(unsigned long*, unsigned long*, unsigned long, unsigned long)"
+"GPU activities",0.004472,0.003840,2,0.001920,0.001856,0.001984,"[CUDA memcpy DtoH]"
+"API calls",67.531263,216.133348,2,108.066674,0.009140,216.124208,"cudaMalloc"
+"API calls",28.731163,91.953893,2,45.976946,3.191214,88.762679,"cudaMemcpy"
+"API calls",3.636167,11.637529,2,5.818764,0.014273,11.623256,"cudaLaunchKernel"
+"API calls",0.048531,0.155324,2,0.077662,0.006158,0.149166,"cudaFree"
+"API calls",0.044782,0.143324,114,0.001257,0.000081,0.058250,"cuDeviceGetAttribute"
+"API calls",0.004985,0.015953,1,0.015953,0.015953,0.015953,"cuDeviceGetName"
+"API calls",0.001834,0.005869,1,0.005869,0.005869,0.005869,"cuDeviceGetPCIBusId"
+"API calls",0.000570,0.001824,3,0.000608,0.000096,0.001522,"cuDeviceGetCount"
+"API calls",0.000224,0.000717,1,0.000717,0.000717,0.000717,"cudaGetDeviceCount"
+"API calls",0.000167,0.000536,2,0.000268,0.000091,0.000445,"cuDeviceGet"
+"API calls",0.000118,0.000378,1,0.000378,0.000378,0.000378,"cuModuleGetLoadingMode"
+"API calls",0.000110,0.000351,1,0.000351,0.000351,0.000351,"cuDeviceTotalMem"
+"API calls",0.000086,0.000276,1,0.000276,0.000276,0.000276,"cuDeviceGetUuid"

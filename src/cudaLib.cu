@@ -21,6 +21,7 @@ void saxpy_gpu (float* x, float* y, float scale, int size) {
 int runGpuSaxpy(int vectorSize) {
 
 	std::cout << "Hello GPU Saxpy!\n";
+	auto tStart = std::chrono::high_resolution_clock::now();
 
 	//	Insert code here
 	int vectorBytes = vectorSize * sizeof(float);
@@ -82,6 +83,10 @@ int runGpuSaxpy(int vectorSize) {
 	int errorCount = verifyVector(a, b, c, scale, vectorSize);
 	std::cout << "Found " << errorCount << " / " << vectorSize << " errors \n";
 
+	auto tEnd= std::chrono::high_resolution_clock::now();
+
+	std::chrono::duration<double> time_span = (tEnd- tStart);
+	std::cout << "It took " << time_span.count() << " seconds.";
 
 	return 0;
 }
@@ -130,14 +135,25 @@ void generatePoints (uint64_t * pSums, uint64_t pSumSize, uint64_t sampleSize) {
 }
 
 /*
-reduceSize = pSumSize / reduceThreadCount
+reduceThreadCount = pSumSize / reduceSize
 array totals[reduceThreadCount] = [reduced_val_0, reduced_val_1, ...]
+array pSums[pSumSize] = [tid_0, tid_1, tid_2, ... tid_n]
 */
 __global__ 
 void reduceCounts (uint64_t * pSums, uint64_t * totals, uint64_t pSumSize, uint64_t reduceSize) {
 	//	Insert code here
 	uint64_t threadId = blockIdx.x * blockDim.x + threadIdx.x;
+	// Each thread works: data[i:i+reduceSize]
+    uint64_t startIdx = threadId * reduceSize;
+    uint64_t endIdx = startIdx + reduceSize;
 
+	// Combine partial sums
+	uint64_t reducePSum = 0;
+	for (uint64_t i = startIdx; i < endIdx && i < pSumSize; i++) {
+		reducePSum += pSums[i];
+	}
+
+	totals[threadId] = reducePSum; 
 }
 
 int runGpuMCPi (uint64_t generateThreadCount, uint64_t sampleSize, 
@@ -178,8 +194,50 @@ double estimatePi(uint64_t generateThreadCount, uint64_t sampleSize,
 	double approxPi = 0;
 
 	//      Insert code here
+	uint64_t pSumSize = generateThreadCount;
+
+	// Generate random samples: n = generateThreadCount * sampleSize
+	// #(generateThreadCount) Partial Sums
+	uint64_t *pSums_d;
+	cudaMalloc(&pSums_d, pSumSize * sizeof(uint64_t));
+	generatePoints<<<ceil(pSumSize/reduceSize),reduceSize>>>(pSums_d, pSumSize, sampleSize);
 	
-	std::cout << "Sneaky, you are ...\n";
-	std::cout << "Compute pi, you must!\n";
+	#ifndef DEBUG_PRINT_DISABLE
+		uint64_t *pSums_h;
+		pSums_h = (uint64_t*)malloc(pSumSize * sizeof(uint64_t));
+		cudaMemcpy(pSums_h, pSums_d, pSumSize * sizeof(uint64_t), cudaMemcpyDeviceToHost);
+		uint64_t sum = 0;
+		for (int i = 0; i < pSumSize; i++) sum += pSums_h[i];
+		std::cout << "pSum SUMS = " << sum << std::endl;
+	#endif
+
+	// Reduce partial sums: n = generateThreadCount / reduceSize = reduceThreadCount
+	// totals num elements: #(reduceThreadCount) 
+	uint64_t *totals_h, *totals_d;
+	uint64_t totalsSize = reduceThreadCount * sizeof(uint64_t);
+	totals_h = (uint64_t*)malloc(totalsSize);
+	cudaMalloc(&totals_d, totalsSize);
+	reduceCounts<<<1,reduceThreadCount>>>(pSums_d, totals_d, pSumSize, reduceSize);
+	cudaMemcpy(totals_h, totals_d, totalsSize, cudaMemcpyDeviceToHost);
+
+	// Free
+	cudaFree(pSums_d); cudaFree(totals_d);
+
+	// Accumulate elements in totals (reduced pSums)
+	sum = 0;
+	for (int i = 0; i < reduceThreadCount; i++) {
+		sum += totals_h[i];
+	}
+
+	#ifndef DEBUG_PRINT_DISABLE
+		std::cout << "totals SUM = " <<sum << std::endl;
+		std::cout << "total Samples = " << sampleSize*generateThreadCount  <<"\n";
+	#endif
+
+	// Approximate Pi
+	approxPi = ((double)sum / sampleSize) / generateThreadCount;
+	approxPi *= 4.0f;
+
+	std::cout << "\n";
 	return approxPi;
 }
